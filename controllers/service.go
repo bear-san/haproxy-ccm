@@ -12,7 +12,7 @@ type ServiceController struct {
 	cloudprovider.LoadBalancer
 }
 
-func (s *ServiceController) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ string, service *v1.Service) error {
 	binds, err := haproxy.ListBind(fmt.Sprintf("frontend-%s", service.UID))
 	if err != nil {
 		return err
