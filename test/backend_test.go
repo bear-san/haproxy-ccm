@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestListBacktend(t *testing.T) {
+func TestListBackend(t *testing.T) {
 	t.Run("List Test", func(t *testing.T) {
 		got, err := haproxy.ListBackend()
 		if err != nil {
