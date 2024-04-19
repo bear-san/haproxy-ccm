@@ -50,6 +50,23 @@ func CreateFrontend(frontend Frontend) error {
 	return nil
 }
 
+func DeleteFrontend(name string) error {
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends/%s", haproxyBaseUrl, name), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	return nil
+
+}
+
 type FrontendResult struct {
 	Version int        `json:"_version"`
 	Data    []Frontend `json:"data"`

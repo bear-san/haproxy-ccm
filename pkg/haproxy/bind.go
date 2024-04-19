@@ -50,6 +50,22 @@ func CreateBind(frontend string, bind Bind) error {
 	return nil
 }
 
+func DeleteBind(name string, frontend string) error {
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/configuration/binds/%s?frontend=%s", haproxyBaseUrl, name, frontend), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	return nil
+}
+
 type BindResult struct {
 	Version int    `json:"_version"`
 	Data    []Bind `json:"data"`

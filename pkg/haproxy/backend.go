@@ -50,6 +50,23 @@ func CreateBackend(backend Backend) error {
 	return nil
 }
 
+func DeleteBackend(name string) error {
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/configuration/backends/%s", haproxyBaseUrl, name), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	return nil
+
+}
+
 type BackendResult struct {
 	Version int       `json:"_version"`
 	Data    []Backend `json:"data"`
