@@ -1,19 +1,24 @@
 package haproxy
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
-func ListFrontend(ctx context.Context) ([]Frontend, error) {
+func ListFrontend() ([]Frontend, error) {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends", haproxyBaseUrl), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
 
 	result := FrontendResult{}
 	err := json.NewDecoder(resp.Body).Decode(&result)

@@ -1,15 +1,13 @@
 package test
 
 import (
-	"context"
 	"github.com/bear-san/haproxy-ccm/pkg/haproxy"
 	"testing"
 )
 
 func TestListFrontend(t *testing.T) {
 	t.Run("List Test", func(t *testing.T) {
-		ctx := context.Background()
-		got, err := haproxy.ListFrontend(ctx)
+		got, err := haproxy.ListFrontend()
 		if err != nil {
 			t.Errorf("ListFrontend() error = %v", err)
 			return
