@@ -12,6 +12,37 @@ type ServiceController struct {
 	cloudprovider.LoadBalancer
 }
 
+func (s *ServiceController) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+	binds, err := haproxy.ListBind(fmt.Sprintf("frontend-%s", service.UID))
+	if err != nil {
+		return err
+	}
+
+	for _, bind := range binds {
+		err := haproxy.DeleteBind(bind.Name, fmt.Sprintf("frontend-%s", service.UID))
+		if err != nil {
+			return err
+		}
+	}
+
+	haproxy.DeleteFrontend(fmt.Sprintf("frontend-%s", service.UID))
+
+	servers, err := haproxy.ListServer(fmt.Sprintf("backend-%s", service.UID))
+	if err != nil {
+		return err
+	}
+	for _, server := range servers {
+		err := haproxy.DeleteServer(server.Name, fmt.Sprintf("backend-%s", service.UID))
+		if err != nil {
+			return err
+		}
+	}
+
+	haproxy.DeleteBackend(fmt.Sprintf("backend-%s", service.UID))
+
+	return nil
+}
+
 func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
 	newBackend := haproxy.Backend{
 		Balance: struct {
