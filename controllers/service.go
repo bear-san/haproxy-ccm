@@ -6,11 +6,11 @@ import (
 	cloudprovider "k8s.io/cloud-provider"
 )
 
-type serviceController struct {
+type ServiceController struct {
 	cloudprovider.LoadBalancer
 }
 
-func (c *serviceController) GetLoadBalancer(ctx context.Context, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
+func (c *ServiceController) GetLoadBalancer(ctx context.Context, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 
 	return nil, false, nil
 }
