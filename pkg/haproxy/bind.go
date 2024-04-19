@@ -1,6 +1,7 @@
 package haproxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,26 @@ func ListBind(frontend string) ([]Bind, error) {
 	}
 
 	return result.Data, nil
+}
+
+func CreateBind(frontend string, bind Bind) error {
+	reqBody, _ := json.Marshal(bind)
+	reqBodyBuffer := bytes.Buffer{}
+	reqBodyBuffer.Write(reqBody)
+
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/configuration/binds?frontend=%s", haproxyBaseUrl, frontend), &reqBodyBuffer)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	return nil
 }
 
 type BindResult struct {

@@ -1,6 +1,7 @@
 package haproxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,26 @@ func ListFrontend() ([]Frontend, error) {
 	}
 
 	return result.Data, nil
+}
+
+func CreateFrontend(frontend Frontend) error {
+	reqBody, _ := json.Marshal(frontend)
+	reqBodyBuffer := bytes.Buffer{}
+	reqBodyBuffer.Write(reqBody)
+
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends", haproxyBaseUrl), &reqBodyBuffer)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	return nil
 }
 
 type FrontendResult struct {

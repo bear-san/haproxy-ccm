@@ -1,6 +1,7 @@
 package haproxy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,26 @@ func ListServer(backend string) ([]Server, error) {
 	}
 
 	return result.Data, nil
+}
+
+func CreateServer(backend string, server Server) error {
+	reqBody, _ := json.Marshal(server)
+	reqBodyBuffer := bytes.Buffer{}
+	reqBodyBuffer.Write(reqBody)
+
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/configuration/servers?backend=%s", haproxyBaseUrl, backend), &reqBodyBuffer)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	return nil
 }
 
 type ServerResult struct {
