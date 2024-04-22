@@ -12,6 +12,32 @@ type ServiceController struct {
 	cloudprovider.LoadBalancer
 }
 
+func (s *ServiceController) GetLoadBalancer(_ context.Context, _ string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
+	frontends, err := haproxy.ListFrontend()
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, frontend := range frontends {
+		if frontend.Name == fmt.Sprintf("frontend-%s", service.UID) {
+			binds, err := haproxy.ListBind(fmt.Sprintf("frontend-%s", service.UID))
+			if err != nil {
+				return nil, false, err
+			}
+
+			return &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: binds[0].Address,
+					},
+				},
+			}, true, nil
+		}
+	}
+
+	return nil, false, nil
+}
+
 func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ string, service *v1.Service) error {
 	binds, err := haproxy.ListBind(fmt.Sprintf("frontend-%s", service.UID))
 	if err != nil {
