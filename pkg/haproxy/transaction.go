@@ -3,25 +3,23 @@ package haproxy
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 )
 
 func CreateTransaction() (*Transaction, error) {
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/transactions", haproxyBaseUrl), nil)
+	v, err := GetVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/transactions?version=%d", haproxyBaseUrl, v), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
 
 	result := Transaction{}
-	err := json.NewDecoder(resp.Body).Decode(&result)
+	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -34,13 +32,7 @@ func CommitTransaction(transactionId string) error {
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
-	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
+	_, _ = client.Do(req)
 
 	return nil
 }

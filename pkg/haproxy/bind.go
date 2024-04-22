@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 )
 
@@ -14,12 +13,6 @@ func ListBind(frontend string) ([]Bind, error) {
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
 
 	result := BindResult{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
@@ -44,13 +37,7 @@ func CreateBind(frontend string, bind Bind, transaction *Transaction) error {
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
-	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
+	_, _ = client.Do(req)
 
 	return nil
 }
@@ -64,13 +51,7 @@ func DeleteBind(name string, frontend string, transaction *Transaction) error {
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
-	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
+	_, _ = client.Do(req)
 
 	return nil
 }

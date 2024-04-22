@@ -1,9 +1,15 @@
 package controllers
 
-import cloudprovider "k8s.io/cloud-provider"
+import (
+	cloudprovider "k8s.io/cloud-provider"
+)
 
 type Provider struct {
 	cloudprovider.Interface
+}
+
+func (p *Provider) Initialize(_ cloudprovider.ControllerClientBuilder, _ <-chan struct{}) {
+
 }
 
 func (p *Provider) LoadBalancer() (cloudprovider.LoadBalancer, bool) {

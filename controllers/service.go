@@ -13,6 +13,12 @@ type ServiceController struct {
 }
 
 func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) error {
+	ipAddr := service.Spec.LoadBalancerIP
+	if ipAddr == "" {
+		// Not implemented
+		return fmt.Errorf("auto assign IP not implemented")
+	}
+
 	transaction, err := haproxy.CreateTransaction()
 	if err != nil {
 		return err
@@ -50,12 +56,6 @@ func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, serv
 		if err != nil {
 			return err
 		}
-	}
-
-	ipAddr := service.Spec.LoadBalancerIP
-	if ipAddr == "" {
-		// Not implemented
-		return fmt.Errorf("auto assign IP not implemented")
 	}
 
 	for _, port := range service.Spec.Ports {
@@ -139,6 +139,12 @@ func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ strin
 }
 
 func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+	ipAddr := service.Spec.LoadBalancerIP
+	if ipAddr == "" {
+		// Not implemented
+		return nil, fmt.Errorf("auto assign IP not implemented")
+	}
+
 	transaction, err := haproxy.CreateTransaction()
 	if err != nil {
 		return nil, err
@@ -173,12 +179,6 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		Tcplog:         false,
 	}
 	haproxy.CreateFrontend(newFrontend, transaction)
-
-	ipAddr := service.Spec.LoadBalancerIP
-	if ipAddr == "" {
-		// Not implemented
-		return nil, fmt.Errorf("auto assign IP not implemented")
-	}
 
 	for _, port := range service.Spec.Ports {
 		newBind := haproxy.Bind{

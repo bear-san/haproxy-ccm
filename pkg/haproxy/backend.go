@@ -44,13 +44,7 @@ func CreateBackend(backend Backend, transaction *Transaction) error {
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
-	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
+	_, _ = client.Do(req)
 
 	return nil
 }
@@ -64,13 +58,7 @@ func DeleteBackend(name string, transaction *Transaction) error {
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
-	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
+	_, _ = client.Do(req)
 
 	return nil
 
