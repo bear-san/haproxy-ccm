@@ -12,6 +12,10 @@ type ServiceController struct {
 	cloudprovider.LoadBalancer
 }
 
+func (s *ServiceController) GetLoadBalancerName(_ context.Context, _ string, service *v1.Service) string {
+	return fmt.Sprintf("haproxy-%s", service.UID)
+}
+
 func (s *ServiceController) GetLoadBalancer(_ context.Context, _ string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
 	frontends, err := haproxy.ListFrontend()
 	if err != nil {
