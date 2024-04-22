@@ -43,37 +43,48 @@ func (s *ServiceController) GetLoadBalancer(_ context.Context, _ string, service
 }
 
 func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ string, service *v1.Service) error {
+	transaction, err := haproxy.CreateTransaction()
+	if err != nil {
+		return err
+	}
+
 	binds, err := haproxy.ListBind(fmt.Sprintf("frontend-%s", service.UID))
 	if err != nil {
 		return err
 	}
 
 	for _, bind := range binds {
-		err := haproxy.DeleteBind(bind.Name, fmt.Sprintf("frontend-%s", service.UID), nil)
+		err := haproxy.DeleteBind(bind.Name, fmt.Sprintf("frontend-%s", service.UID), transaction)
 		if err != nil {
 			return err
 		}
 	}
 
-	haproxy.DeleteFrontend(fmt.Sprintf("frontend-%s", service.UID), nil)
+	haproxy.DeleteFrontend(fmt.Sprintf("frontend-%s", service.UID), transaction)
 
 	servers, err := haproxy.ListServer(fmt.Sprintf("backend-%s", service.UID))
 	if err != nil {
 		return err
 	}
 	for _, server := range servers {
-		err := haproxy.DeleteServer(server.Name, fmt.Sprintf("backend-%s", service.UID), nil)
+		err := haproxy.DeleteServer(server.Name, fmt.Sprintf("backend-%s", service.UID), transaction)
 		if err != nil {
 			return err
 		}
 	}
 
-	haproxy.DeleteBackend(fmt.Sprintf("backend-%s", service.UID), nil)
+	haproxy.DeleteBackend(fmt.Sprintf("backend-%s", service.UID), transaction)
+	haproxy.CommitTransaction(transaction.Id)
 
 	return nil
 }
 
 func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+	transaction, err := haproxy.CreateTransaction()
+	if err != nil {
+		return nil, err
+	}
+
 	newBackend := haproxy.Backend{
 		Balance: struct {
 			Algorithm string `json:"algorithm"`
@@ -83,7 +94,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		Mode: "tcp",
 		Name: fmt.Sprintf("backend-%s", service.UID),
 	}
-	haproxy.CreateBackend(newBackend, nil)
+	haproxy.CreateBackend(newBackend, transaction)
 
 	for _, node := range nodes {
 		for _, port := range service.Spec.Ports {
@@ -92,7 +103,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 				Port:    int(port.NodePort),
 				Name:    fmt.Sprintf("server-%s-%s-%d", service.UID, node.Name, port.NodePort),
 			}
-			haproxy.CreateServer(newBackend.Name, newServer, nil)
+			haproxy.CreateServer(newBackend.Name, newServer, transaction)
 		}
 	}
 
@@ -102,7 +113,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		Name:           fmt.Sprintf("frontend-%s", service.UID),
 		Tcplog:         false,
 	}
-	haproxy.CreateFrontend(newFrontend, nil)
+	haproxy.CreateFrontend(newFrontend, transaction)
 
 	ipAddr := service.Spec.LoadBalancerIP
 	if ipAddr == "" {
@@ -117,8 +128,10 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 			Name:    fmt.Sprintf("bind-%s-%d", service.UID, port.Port),
 		}
 
-		haproxy.CreateBind(newFrontend.Name, newBind, nil)
+		haproxy.CreateBind(newFrontend.Name, newBind, transaction)
 	}
+
+	haproxy.CommitTransaction(transaction.Id)
 
 	return &v1.LoadBalancerStatus{
 		Ingress: []v1.LoadBalancerIngress{
