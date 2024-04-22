@@ -12,6 +12,65 @@ type ServiceController struct {
 	cloudprovider.LoadBalancer
 }
 
+func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) error {
+	transaction, err := haproxy.CreateTransaction()
+	if err != nil {
+		return err
+	}
+
+	servers, err := haproxy.ListServer(fmt.Sprintf("backend-%s", service.UID))
+	if err != nil {
+		return err
+	}
+
+	for _, server := range servers {
+		err := haproxy.DeleteServer(server.Name, fmt.Sprintf("backend-%s", service.UID), transaction)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, node := range nodes {
+		for _, port := range service.Spec.Ports {
+			newServer := haproxy.Server{
+				Address: node.Name,
+				Port:    int(port.NodePort),
+				Name:    fmt.Sprintf("server-%s-%s-%d", service.UID, node.Name, port.NodePort),
+			}
+			haproxy.CreateServer(fmt.Sprintf("backend-%s", service.UID), newServer, transaction)
+		}
+	}
+
+	binds, err := haproxy.ListBind(fmt.Sprintf("frontend-%s", service.UID))
+	if err != nil {
+		return err
+	}
+	for _, bind := range binds {
+		err := haproxy.DeleteBind(bind.Name, fmt.Sprintf("frontend-%s", service.UID), transaction)
+		if err != nil {
+			return err
+		}
+	}
+
+	ipAddr := service.Spec.LoadBalancerIP
+	if ipAddr == "" {
+		// Not implemented
+		return fmt.Errorf("auto assign IP not implemented")
+	}
+
+	for _, port := range service.Spec.Ports {
+		newBind := haproxy.Bind{
+			Address: ipAddr,
+			Port:    int(port.Port),
+			Name:    fmt.Sprintf("bind-%s-%d", service.UID, port.Port),
+		}
+
+		haproxy.CreateBind(fmt.Sprintf("frontend-%s", service.UID), newBind, transaction)
+	}
+
+	return haproxy.CommitTransaction(transaction.Id)
+}
+
 func (s *ServiceController) GetLoadBalancerName(_ context.Context, _ string, service *v1.Service) string {
 	return fmt.Sprintf("haproxy-%s", service.UID)
 }
