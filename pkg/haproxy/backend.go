@@ -30,12 +30,17 @@ func ListBackend() ([]Backend, error) {
 	return result.Data, nil
 }
 
-func CreateBackend(backend Backend) error {
+func CreateBackend(backend Backend, transaction *Transaction) error {
 	reqBody, _ := json.Marshal(backend)
 	reqBodyBuffer := bytes.Buffer{}
 	reqBodyBuffer.Write(reqBody)
 
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/configuration/backends", haproxyBaseUrl), &reqBodyBuffer)
+	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/backends", haproxyBaseUrl)
+	if transaction != nil {
+		url = fmt.Sprintf("%s?transaction_id=%s", url, transaction.Id)
+	}
+
+	req, _ := http.NewRequest("POST", url, &reqBodyBuffer)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
@@ -50,8 +55,12 @@ func CreateBackend(backend Backend) error {
 	return nil
 }
 
-func DeleteBackend(name string) error {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/configuration/backends/%s", haproxyBaseUrl, name), nil)
+func DeleteBackend(name string, transaction *Transaction) error {
+	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/backends/%s", haproxyBaseUrl, name)
+	if transaction != nil {
+		url = fmt.Sprintf("%s?transaction_id=%s", url, transaction.Id)
+	}
+	req, _ := http.NewRequest("DELETE", url, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}

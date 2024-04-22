@@ -30,12 +30,17 @@ func ListBind(frontend string) ([]Bind, error) {
 	return result.Data, nil
 }
 
-func CreateBind(frontend string, bind Bind) error {
+func CreateBind(frontend string, bind Bind, transaction *Transaction) error {
 	reqBody, _ := json.Marshal(bind)
 	reqBodyBuffer := bytes.Buffer{}
 	reqBodyBuffer.Write(reqBody)
 
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/configuration/binds?frontend=%s", haproxyBaseUrl, frontend), &reqBodyBuffer)
+	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/binds?frontend=%s", haproxyBaseUrl, frontend)
+	if transaction != nil {
+		url = fmt.Sprintf("%s&transaction_id=%s", url, transaction.Id)
+	}
+
+	req, _ := http.NewRequest("POST", url, &reqBodyBuffer)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
@@ -50,8 +55,12 @@ func CreateBind(frontend string, bind Bind) error {
 	return nil
 }
 
-func DeleteBind(name string, frontend string) error {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/configuration/binds/%s?frontend=%s", haproxyBaseUrl, name, frontend), nil)
+func DeleteBind(name string, frontend string, transaction *Transaction) error {
+	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/binds/%s?frontend=%s", haproxyBaseUrl, name, frontend)
+	if transaction != nil {
+		url = fmt.Sprintf("%s&transaction_id=%s", url, transaction.Id)
+	}
+	req, _ := http.NewRequest("DELETE", url, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}
