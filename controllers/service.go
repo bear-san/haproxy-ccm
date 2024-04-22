@@ -49,26 +49,26 @@ func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ strin
 	}
 
 	for _, bind := range binds {
-		err := haproxy.DeleteBind(bind.Name, fmt.Sprintf("frontend-%s", service.UID))
+		err := haproxy.DeleteBind(bind.Name, fmt.Sprintf("frontend-%s", service.UID), nil)
 		if err != nil {
 			return err
 		}
 	}
 
-	haproxy.DeleteFrontend(fmt.Sprintf("frontend-%s", service.UID))
+	haproxy.DeleteFrontend(fmt.Sprintf("frontend-%s", service.UID), nil)
 
 	servers, err := haproxy.ListServer(fmt.Sprintf("backend-%s", service.UID))
 	if err != nil {
 		return err
 	}
 	for _, server := range servers {
-		err := haproxy.DeleteServer(server.Name, fmt.Sprintf("backend-%s", service.UID))
+		err := haproxy.DeleteServer(server.Name, fmt.Sprintf("backend-%s", service.UID), nil)
 		if err != nil {
 			return err
 		}
 	}
 
-	haproxy.DeleteBackend(fmt.Sprintf("backend-%s", service.UID))
+	haproxy.DeleteBackend(fmt.Sprintf("backend-%s", service.UID), nil)
 
 	return nil
 }
@@ -83,7 +83,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		Mode: "tcp",
 		Name: fmt.Sprintf("backend-%s", service.UID),
 	}
-	haproxy.CreateBackend(newBackend)
+	haproxy.CreateBackend(newBackend, nil)
 
 	for _, node := range nodes {
 		for _, port := range service.Spec.Ports {
@@ -92,7 +92,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 				Port:    int(port.NodePort),
 				Name:    fmt.Sprintf("server-%s-%s-%d", service.UID, node.Name, port.NodePort),
 			}
-			haproxy.CreateServer(newBackend.Name, newServer)
+			haproxy.CreateServer(newBackend.Name, newServer, nil)
 		}
 	}
 
@@ -102,7 +102,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		Name:           fmt.Sprintf("frontend-%s", service.UID),
 		Tcplog:         false,
 	}
-	haproxy.CreateFrontend(newFrontend)
+	haproxy.CreateFrontend(newFrontend, nil)
 
 	ipAddr := service.Spec.LoadBalancerIP
 	if ipAddr == "" {
@@ -117,7 +117,7 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 			Name:    fmt.Sprintf("bind-%s-%d", service.UID, port.Port),
 		}
 
-		haproxy.CreateBind(newFrontend.Name, newBind)
+		haproxy.CreateBind(newFrontend.Name, newBind, nil)
 	}
 
 	return &v1.LoadBalancerStatus{
