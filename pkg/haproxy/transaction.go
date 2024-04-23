@@ -53,8 +53,39 @@ func CommitTransaction(transactionId string) error {
 	return nil
 }
 
+func ListTransactions() ([]Transaction, error) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/transactions", haproxyBaseUrl), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+
+	var result []Transaction
+	err := json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func DeleteTransaction(transactionId string) error {
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/transactions/%s", haproxyBaseUrl, transactionId), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusNoContent {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete transaction %s %s", transactionId, string(errMsg))
+	}
+
+	return nil
+}
+
 type Transaction struct {
-	Version int    `json:"_version"`
-	Id      string `json:"id"`
-	Status  string `json:"status"`
+	Id     string `json:"id"`
+	Status string `json:"status"`
 }
