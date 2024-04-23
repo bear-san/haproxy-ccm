@@ -36,8 +36,8 @@ func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, serv
 		}
 	}
 
-	for _, node := range nodes {
-		for _, port := range service.Spec.Ports {
+	for _, port := range service.Spec.Ports {
+		for _, node := range nodes {
 			newServer := haproxy.Server{
 				Address: node.Name,
 				Port:    int(port.NodePort),
@@ -165,29 +165,29 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		return nil, err
 	}
 
-	newBackend := haproxy.Backend{
-		Balance: struct {
-			Algorithm string `json:"algorithm"`
-		}(struct{ Algorithm string }{
-			Algorithm: "roundrobin",
-		}),
-		Mode: "tcp",
-		Name: fmt.Sprintf("backend-%s", service.UID),
-	}
-	err = haproxy.CreateBackend(newBackend, transaction)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, node := range nodes {
-		nodeIp := ""
-		for _, address := range node.Status.Addresses {
-			if address.Type == v1.NodeInternalIP {
-				nodeIp = address.Address
-				break
-			}
+	for _, port := range service.Spec.Ports {
+		newBackend := haproxy.Backend{
+			Balance: struct {
+				Algorithm string `json:"algorithm"`
+			}(struct{ Algorithm string }{
+				Algorithm: "roundrobin",
+			}),
+			Mode: "tcp",
+			Name: fmt.Sprintf("backend-%s-%s", service.UID, port.Name),
 		}
-		for _, port := range service.Spec.Ports {
+
+		err = haproxy.CreateBackend(newBackend, transaction)
+		if err != nil {
+			return nil, err
+		}
+		for _, node := range nodes {
+			nodeIp := ""
+			for _, address := range node.Status.Addresses {
+				if address.Type == v1.NodeInternalIP {
+					nodeIp = address.Address
+					break
+				}
+			}
 			newServer := haproxy.Server{
 				Address: nodeIp,
 				Port:    int(port.NodePort),
@@ -198,20 +198,18 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 				return nil, err
 			}
 		}
-	}
 
-	newFrontend := haproxy.Frontend{
-		DefaultBackend: newBackend.Name,
-		Mode:           "tcp",
-		Name:           fmt.Sprintf("frontend-%s", service.UID),
-		Tcplog:         false,
-	}
-	err = haproxy.CreateFrontend(newFrontend, transaction)
-	if err != nil {
-		return nil, err
-	}
+		newFrontend := haproxy.Frontend{
+			DefaultBackend: newBackend.Name,
+			Mode:           "tcp",
+			Name:           fmt.Sprintf("frontend-%s", service.UID),
+			Tcplog:         false,
+		}
+		err = haproxy.CreateFrontend(newFrontend, transaction)
+		if err != nil {
+			return nil, err
+		}
 
-	for _, port := range service.Spec.Ports {
 		newBind := haproxy.Bind{
 			Address: ipAddr,
 			Port:    int(port.Port),
