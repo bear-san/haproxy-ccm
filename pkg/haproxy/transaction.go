@@ -3,6 +3,7 @@ package haproxy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -12,14 +13,24 @@ func CreateTransaction() (*Transaction, error) {
 		return nil, err
 	}
 
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/transactions?version=%d", haproxyBaseUrl, v), nil)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/transactions?version=%d", haproxyBaseUrl, *v), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusCreated {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to create transaction %s", string(errMsg))
+	}
+
+	resultText, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
 	result := Transaction{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	err = json.Unmarshal(resultText, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -30,15 +41,20 @@ func CreateTransaction() (*Transaction, error) {
 func CommitTransaction(transactionId string) error {
 	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/v2/services/haproxy/transactions/%s", haproxyBaseUrl, transactionId), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	_, _ = client.Do(req)
+	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to commit transaction %s %s", transactionId, string(errMsg))
+	}
 
 	return nil
 }
 
 type Transaction struct {
-	Version string `json:"_version"`
+	Version int    `json:"_version"`
 	Id      string `json:"id"`
 	Status  string `json:"status"`
 }

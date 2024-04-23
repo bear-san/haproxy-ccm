@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
 func ListBind(frontend string) ([]Bind, error) {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/binds?frontend=%s", haproxyBaseUrl, frontend), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
@@ -35,9 +37,14 @@ func CreateBind(frontend string, bind Bind, transaction *Transaction) error {
 
 	req, _ := http.NewRequest("POST", url, &reqBodyBuffer)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	_, _ = client.Do(req)
+	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create bind %s", string(errMsg))
+	}
 
 	return nil
 }
@@ -49,9 +56,14 @@ func DeleteBind(name string, frontend string, transaction *Transaction) error {
 	}
 	req, _ := http.NewRequest("DELETE", url, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	_, _ = client.Do(req)
+	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusAccepted {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete bind %s", string(errMsg))
+	}
 
 	return nil
 }

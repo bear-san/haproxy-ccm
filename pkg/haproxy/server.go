@@ -11,6 +11,7 @@ import (
 func ListServer(backend string) ([]Server, error) {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/servers?backend=%s", haproxyBaseUrl, backend), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
@@ -36,9 +37,14 @@ func CreateServer(backend string, server Server, transaction *Transaction) error
 
 	req, _ := http.NewRequest("POST", url, &reqBodyBuffer)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	_, _ = client.Do(req)
+	resp, _ := client.Do(req)
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create server %s", string(errMsg))
+	}
 
 	return nil
 }
@@ -51,15 +57,14 @@ func DeleteServer(name string, backend string, transaction *Transaction) error {
 
 	req, _ := http.NewRequest("DELETE", url, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}(resp.Body)
+	if resp.StatusCode != http.StatusAccepted {
+		errMsg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete server %s", string(errMsg))
+	}
 
 	return nil
 
