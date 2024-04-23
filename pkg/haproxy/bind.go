@@ -16,13 +16,30 @@ func ListBind(frontend string) ([]Bind, error) {
 	client := &http.Client{}
 	resp, _ := client.Do(req)
 
-	result := BindResult{}
+	result := BindListResult{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
 	return result.Data, nil
+}
+
+func GetBind(name string, frontend string) (*Bind, error) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/binds/%s?frontend=%s", haproxyBaseUrl, name, frontend), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+
+	result := BindResult{}
+	err := json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result.Data, nil
 }
 
 func CreateBind(frontend string, bind Bind, transaction *Transaction) error {
@@ -69,6 +86,11 @@ func DeleteBind(name string, frontend string, transaction *Transaction) error {
 }
 
 type BindResult struct {
+	Version int  `json:"_version"`
+	Data    Bind `json:"data"`
+}
+
+type BindListResult struct {
 	Version int    `json:"_version"`
 	Data    []Bind `json:"data"`
 }

@@ -22,13 +22,30 @@ func ListFrontend() ([]Frontend, error) {
 		}
 	}(resp.Body)
 
-	result := FrontendResult{}
+	result := FrontendListResult{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
 	return result.Data, nil
+}
+
+func GetFrontend(name string) (*Frontend, error) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends/%s", haproxyBaseUrl, name), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+
+	result := FrontendResult{}
+	err := json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result.Data, nil
 }
 
 func CreateFrontend(frontend Frontend, transaction *Transaction) error {
@@ -77,6 +94,11 @@ func DeleteFrontend(name string, transaction *Transaction) error {
 }
 
 type FrontendResult struct {
+	Version int      `json:"_version"`
+	Data    Frontend `json:"data"`
+}
+
+type FrontendListResult struct {
 	Version int        `json:"_version"`
 	Data    []Frontend `json:"data"`
 }

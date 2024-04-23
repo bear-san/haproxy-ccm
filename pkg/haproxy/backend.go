@@ -22,13 +22,32 @@ func ListBackend() ([]Backend, error) {
 		}
 	}(resp.Body)
 
-	result := BackendResult{}
+	result := BackendListResult{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
 	return result.Data, nil
+}
+
+func GetBackend(name string) (*Backend, error) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/backends/%s", haproxyBaseUrl, name), nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+
+	result := BackendResult{}
+	err := json.NewDecoder(resp.Body).Decode(&result)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result.Data, nil
+
 }
 
 func CreateBackend(backend Backend, transaction *Transaction) error {
@@ -76,6 +95,11 @@ func DeleteBackend(name string, transaction *Transaction) error {
 }
 
 type BackendResult struct {
+	Version int     `json:"_version"`
+	Data    Backend `json:"data"`
+}
+
+type BackendListResult struct {
 	Version int       `json:"_version"`
 	Data    []Backend `json:"data"`
 }
