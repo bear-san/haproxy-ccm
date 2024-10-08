@@ -9,7 +9,7 @@ import (
 )
 
 func GetVersion() (*int, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/version", haproxyBaseUrl), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v3/services/haproxy/configuration/version", haproxyBaseUrl), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 
 	client := &http.Client{}

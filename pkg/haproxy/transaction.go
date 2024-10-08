@@ -13,7 +13,7 @@ func CreateTransaction() (*Transaction, error) {
 		return nil, err
 	}
 
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v2/services/haproxy/transactions?version=%d", haproxyBaseUrl, *v), nil)
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/v3/services/haproxy/transactions?version=%d", haproxyBaseUrl, *v), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -39,7 +39,7 @@ func CreateTransaction() (*Transaction, error) {
 }
 
 func CommitTransaction(transactionId string) error {
-	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/v2/services/haproxy/transactions/%s", haproxyBaseUrl, transactionId), nil)
+	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/v3/services/haproxy/transactions/%s", haproxyBaseUrl, transactionId), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -54,7 +54,7 @@ func CommitTransaction(transactionId string) error {
 }
 
 func ListTransactions() ([]Transaction, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/transactions", haproxyBaseUrl), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v3/services/haproxy/transactions", haproxyBaseUrl), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -71,7 +71,7 @@ func ListTransactions() ([]Transaction, error) {
 }
 
 func DeleteTransaction(transactionId string) error {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v2/services/haproxy/transactions/%s", haproxyBaseUrl, transactionId), nil)
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/v3/services/haproxy/transactions/%s", haproxyBaseUrl, transactionId), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
