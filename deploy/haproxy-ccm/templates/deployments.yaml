@@ -35,3 +35,7 @@ spec:
             value: {{ .Values.env.auth }}
             {{ end }}
       serviceAccountName: haproxy-ccm
+      {{ if .Values.image.useImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.useImagePullSecret.name }}
+      {{ end }}
