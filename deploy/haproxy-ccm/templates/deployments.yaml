@@ -14,5 +14,24 @@ spec:
     spec:
       containers:
       - name: haproxy-ccm
-        image: bearsan/haproxy-ccm:1.0-alpha10
+        image: {{ .Values.image.name }}:{{ .Values.image.tag }}
+        env:
+          - name: HAPROXY_BASE_URL
+            {{ if .Values.env.useExistsSecret.enabled }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.env.useExistsSecret.secretRef.baseUrl.name }}
+                key: {{ .Values.env.useExistsSecret.secretRef.baseUrl.key }}
+            {{ else }}
+            value: {{ .Values.env.baseUrl }}
+            {{ end }}
+          - name: HAPROXY_AUTH
+            {{ if .Values.env.useExistsSecret.enabled }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.env.useExistsSecret.secretRef.auth.name }}
+                key: {{ .Values.env.useExistsSecret.secretRef.auth.key }}
+            {{ else }}
+            value: {{ .Values.env.auth }}
+            {{ end }}
       serviceAccountName: haproxy-ccm
