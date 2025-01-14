@@ -1,6 +1,9 @@
 image:
   name: bearsan/haproxy-ccm
   tag: 1.0-alpha10
+  useImagePullSecret:
+    enabled: false
+    name: ""
 env:
   useExistsSecret:
     enabled: false
