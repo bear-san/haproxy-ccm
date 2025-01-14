@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy-ccm-deployment
+spec:
+  selector:
+    matchLabels:
+      app: haproxy-ccm
+  template:
+    metadata:
+      labels:
+          app: haproxy-ccm
+    spec:
+      containers:
+      - name: haproxy-ccm
+        image: bearsan/haproxy-ccm:1.0-alpha10
+      serviceAccountName: haproxy-ccm
