@@ -38,4 +38,6 @@ spec:
       {{ if .Values.image.useImagePullSecret }}
       imagePullSecrets:
         - name: {{ .Values.image.useImagePullSecret.name }}
+      {{ else }}
+      imagePullSecrets: []
       {{ end }}
