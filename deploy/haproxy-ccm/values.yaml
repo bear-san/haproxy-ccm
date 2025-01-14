@@ -1,0 +1,15 @@
+image:
+  name: bearsan/haproxy-ccm
+  tag: 1.0-alpha10
+env:
+  useExistsSecret:
+    enabled: false
+    secretRef:
+      baseUrl:
+        name: ""
+        key: ""
+      auth:
+        name: ""
+        key: ""
+  baseUrl: ""
+  auth: ""

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy-ccm-deployment
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: haproxy-ccm
+  template:
+    metadata:
+      labels:
+          app: haproxy-ccm
+    spec:
+      containers:
+      - name: haproxy-ccm
+        image: {{ .Values.image.name }}:{{ .Values.image.tag }}
+        env:
+          - name: HAPROXY_BASE_URL
+            {{ if .Values.env.useExistsSecret.enabled }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.env.useExistsSecret.secretRef.baseUrl.name }}
+                key: {{ .Values.env.useExistsSecret.secretRef.baseUrl.key }}
+            {{ else }}
+            value: {{ .Values.env.baseUrl }}
+            {{ end }}
+          - name: HAPROXY_AUTH
+            {{ if .Values.env.useExistsSecret.enabled }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.env.useExistsSecret.secretRef.auth.name }}
+                key: {{ .Values.env.useExistsSecret.secretRef.auth.key }}
+            {{ else }}
+            value: {{ .Values.env.auth }}
+            {{ end }}
+      serviceAccountName: haproxy-ccm
