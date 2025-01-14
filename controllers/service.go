@@ -102,7 +102,6 @@ func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, serv
 				DefaultBackend: newBackend.Name,
 				Mode:           "tcp",
 				Name:           fmt.Sprintf("frontend-%s-%s-%d", service.UID, port.Name, i),
-				Tcplog:         false,
 			}
 			err = haproxy.CreateFrontend(newFrontend, transaction)
 			if err != nil {
@@ -261,7 +260,6 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 				DefaultBackend: newBackend.Name,
 				Mode:           "tcp",
 				Name:           fmt.Sprintf("frontend-%s-%s-%d", service.UID, port.Name, i),
-				Tcplog:         false,
 			}
 
 			// delete current frontend if exists

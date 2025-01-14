@@ -9,37 +9,37 @@ import (
 )
 
 func ListServer(backend string) ([]Server, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/servers?backend=%s", haproxyBaseUrl, backend), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v3/services/haproxy/configuration/backends/%s/servers", haproxyBaseUrl, backend), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
 
-	result := ServerListResult{}
+	result := []Server{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
-	return result.Data, nil
+	return result, nil
 }
 
 func GetServer(name string, backend string) (*Server, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/servers/%s?backend=%s", haproxyBaseUrl, name, backend), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v3/services/haproxy/configuration/backends/%s/servers/%s", haproxyBaseUrl, backend, name), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
 
-	result := ServerResult{}
+	result := Server{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.Data, nil
+	return &result, nil
 }
 
 func CreateServer(backend string, server Server, transaction *Transaction) error {
@@ -47,9 +47,9 @@ func CreateServer(backend string, server Server, transaction *Transaction) error
 	reqBodyBuffer := bytes.Buffer{}
 	reqBodyBuffer.Write(reqBody)
 
-	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/servers?backend=%s", haproxyBaseUrl, backend)
+	url := fmt.Sprintf("%s/v3/services/haproxy/configuration/backends/%s/servers", haproxyBaseUrl, backend)
 	if transaction != nil {
-		url = fmt.Sprintf("%s&transaction_id=%s", url, transaction.Id)
+		url = fmt.Sprintf("%s?transaction_id=%s", url, transaction.Id)
 	}
 
 	req, _ := http.NewRequest("POST", url, &reqBodyBuffer)
@@ -67,9 +67,9 @@ func CreateServer(backend string, server Server, transaction *Transaction) error
 }
 
 func DeleteServer(name string, backend string, transaction *Transaction) error {
-	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/servers/%s?backend=%s", haproxyBaseUrl, name, backend)
+	url := fmt.Sprintf("%s/v3/services/haproxy/configuration/backends/%s/servers/%s", haproxyBaseUrl, backend, name)
 	if transaction != nil {
-		url = fmt.Sprintf("%s&transaction_id=%s", url, transaction.Id)
+		url = fmt.Sprintf("%s?transaction_id=%s", url, transaction.Id)
 	}
 
 	req, _ := http.NewRequest("DELETE", url, nil)

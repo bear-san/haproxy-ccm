@@ -9,7 +9,7 @@ import (
 )
 
 func ListFrontend() ([]Frontend, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends", haproxyBaseUrl), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v3/services/haproxy/configuration/frontends", haproxyBaseUrl), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -22,30 +22,30 @@ func ListFrontend() ([]Frontend, error) {
 		}
 	}(resp.Body)
 
-	result := FrontendListResult{}
+	result := []Frontend{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
-	return result.Data, nil
+	return result, nil
 }
 
 func GetFrontend(name string) (*Frontend, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends/%s", haproxyBaseUrl, name), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/v3/services/haproxy/configuration/frontends/%s", haproxyBaseUrl, name), nil)
 	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", auth))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, _ := client.Do(req)
 
-	result := FrontendResult{}
+	result := Frontend{}
 	err := json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.Data, nil
+	return &result, nil
 }
 
 func CreateFrontend(frontend Frontend, transaction *Transaction) error {
@@ -53,7 +53,7 @@ func CreateFrontend(frontend Frontend, transaction *Transaction) error {
 	reqBodyBuffer := bytes.Buffer{}
 	reqBodyBuffer.Write(reqBody)
 
-	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends", haproxyBaseUrl)
+	url := fmt.Sprintf("%s/v3/services/haproxy/configuration/frontends", haproxyBaseUrl)
 	if transaction != nil {
 		url = fmt.Sprintf("%s?transaction_id=%s", url, transaction.Id)
 	}
@@ -73,7 +73,7 @@ func CreateFrontend(frontend Frontend, transaction *Transaction) error {
 }
 
 func DeleteFrontend(name string, transaction *Transaction) error {
-	url := fmt.Sprintf("%s/v2/services/haproxy/configuration/frontends/%s", haproxyBaseUrl, name)
+	url := fmt.Sprintf("%s/v3/services/haproxy/configuration/frontends/%s", haproxyBaseUrl, name)
 	if transaction != nil {
 		url = fmt.Sprintf("%s?transaction_id=%s", url, transaction.Id)
 	}
@@ -107,5 +107,4 @@ type Frontend struct {
 	DefaultBackend string `json:"default_backend"`
 	Mode           string `json:"mode"`
 	Name           string `json:"name"`
-	Tcplog         bool   `json:"tcplog"`
 }
