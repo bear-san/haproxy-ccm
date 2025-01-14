@@ -9,4 +9,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: haproxy-ccm
-    namespace: haproxy-ccm
+    namespace: {{ .Release.Namespace }}
