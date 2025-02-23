@@ -1,6 +1,8 @@
 module github.com/bear-san/haproxy-ccm
 
-go 1.22.1
+go 1.23
+
+toolchain go1.23.5
 
 require (
 	k8s.io/api v0.30.0
@@ -15,6 +17,7 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
+	github.com/bear-san/haproxy-go v0.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
