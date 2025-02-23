@@ -1,10 +1,8 @@
-FROM golang:1.22.1 AS builder
+# Use distroless as minimal base image to package the manager binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
+COPY ./bin/haproxy-ccm /haproxy-ccm
+USER 65532:65532
 
-WORKDIR /go/src/app
-COPY . .
-
-RUN go build -o /go/bin/haproxy-ccm
-
-FROM gcr.io/distroless/base-debian12:latest
-COPY --from=builder /go/bin/haproxy-ccm /
-CMD ["/haproxy-ccm", "--cloud-provider=haproxy", "--use-service-account-credentials"]
+ENTRYPOINT ["/haproxy-ccm"]
