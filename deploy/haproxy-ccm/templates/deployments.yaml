@@ -34,6 +34,8 @@ spec:
             {{ else }}
             value: {{ .Values.env.auth }}
             {{ end }}
+        args:
+          - --cloud-provider=haproxy
       serviceAccountName: haproxy-ccm
       {{ if .Values.image.useImagePullSecret.enabled }}
       imagePullSecrets:
