@@ -16,7 +16,7 @@ spec:
       - name: haproxy-ccm
         image: {{ .Values.image.name }}:{{ .Values.image.tag }}
         env:
-          - name: HAPROXY_BASE_URL
+          - name: HAPROXY_ENDPOINT
             {{ if .Values.env.useExistsSecret.enabled }}
             valueFrom:
               secretKeyRef:

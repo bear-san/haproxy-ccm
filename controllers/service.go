@@ -11,7 +11,7 @@ import (
 
 type ServiceController struct {
 	cloudprovider.LoadBalancer
-	HAProxyClient haproxyv3.Client
+	HAProxyClient *haproxyv3.Client
 }
 
 func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) error {
