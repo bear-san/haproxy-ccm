@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"github.com/bear-san/haproxy-ccm/controllers"
+	haproxyv3 "github.com/bear-san/haproxy-go/dataplane/v3"
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
@@ -20,6 +22,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	haproxyBaseUrl := flag.String("haproxy-endpoint", os.Getenv("HAPROXY_ENDPOINT"), "The endpoint of the haproxy API")
+	if *haproxyBaseUrl == "" {
+		klog.Fatalf("haproxy endpoint is required")
+	}
+	haproxyAuth := os.Getenv("HAPROXY_AUTH")
+
+	cloudprovider.RegisterCloudProvider("haproxy", func(config io.Reader) (cloudprovider.Interface, error) {
+		return &controllers.Provider{
+			HAproxyClient: &haproxyv3.Client{
+				Credential: *haproxyBaseUrl,
+				BaseUrl:    haproxyAuth,
+			},
+		}, nil
+	})
 
 	controllerInitializers := app.DefaultInitFuncConstructors
 	controllerAliases := names.CCMControllerAliases()
@@ -49,10 +66,4 @@ func cloudInitializer(config *cloudcontrollerconfig.CompletedConfig) cloudprovid
 	}
 
 	return cloud
-}
-
-func init() {
-	cloudprovider.RegisterCloudProvider("haproxy", func(config io.Reader) (cloudprovider.Interface, error) {
-		return &controllers.Provider{}, nil
-	})
 }
