@@ -32,8 +32,8 @@ func main() {
 	cloudprovider.RegisterCloudProvider("haproxy", func(config io.Reader) (cloudprovider.Interface, error) {
 		return &controllers.Provider{
 			HAproxyClient: &haproxyv3.Client{
-				Credential: *haproxyBaseUrl,
-				BaseUrl:    haproxyAuth,
+				Credential: haproxyAuth,
+				BaseUrl:    *haproxyBaseUrl,
 			},
 		}, nil
 	})
