@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/bear-san/haproxy-go v0.1.2
+	github.com/bear-san/haproxy-go v0.1.3
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
 	k8s.io/cloud-provider v0.32.3
