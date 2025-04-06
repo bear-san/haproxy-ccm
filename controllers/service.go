@@ -177,7 +177,7 @@ func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1
 		return nil, err
 	}
 
-	resourcePrefix := fmt.Sprintf("haproxy-%s-", service.UID)
+	resourcePrefix := fmt.Sprintf("haproxy-%s", service.UID)
 
 	backends, err := s.HAProxyClient.ListBackend(*transaction.Id)
 	if err != nil {
@@ -258,7 +258,7 @@ func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1
 
 	// create a new backend and backend servers
 	for _, port := range service.Spec.Ports {
-		resourceName := fmt.Sprintf("%s-%s", resourcePrefix, port.Protocol)
+		resourceName := fmt.Sprintf("%s-%s-%s", resourcePrefix, port.Name, port.Protocol)
 		if _, err := s.HAProxyClient.AddBackend(haproxyv3.Backend{
 			Balance: &haproxyv3.BackendBalance{
 				Algorithm: haproxyv3.BACKEND_BALANCE_ALGORITHM_ROUNDROBIN,
@@ -305,7 +305,7 @@ func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1
 
 	// Create new frontend if not exists
 	for _, port := range service.Spec.Ports {
-		resourceName := fmt.Sprintf("%s-%s", resourcePrefix, port.Protocol)
+		resourceName := fmt.Sprintf("%s-%s-%s", resourcePrefix, port.Name, port.Protocol)
 		mode := haproxyv3.FRONTEND_MODE_TCP
 		if _, err := s.HAProxyClient.AddFrontend(haproxyv3.Frontend{
 			DefaultBackend: &resourceName,
