@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog/v2"
+	"strings"
 )
 
 type ServiceController struct {
@@ -16,163 +17,7 @@ type ServiceController struct {
 
 func (s *ServiceController) UpdateLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) error {
 	klog.Info("Updating HAProxy LoadBalancer...")
-	if len(service.Spec.ExternalIPs) == 0 {
-		// Not implemented
-		return fmt.Errorf("auto assign IP not implemented")
-	}
-
-	currentVersion, err := s.HAProxyClient.GetVersion()
-	if err != nil {
-		klog.Errorf("get current version error: %v", err.Error())
-		return err
-	}
-	transaction, err := s.HAProxyClient.CreateTransaction(*currentVersion)
-	if err != nil {
-		klog.Errorf("create transaction error: %v", err.Error())
-		return err
-	}
-
-	backendName := fmt.Sprintf("backend-%s", service.UID)
-
-	// Delete all servers and binds
-	servers, err := s.HAProxyClient.ListServer(backendName, *transaction.Id)
-	if err != nil {
-		klog.Errorf("list server error: %v", err.Error())
-
-		if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-			klog.Errorf("close transaction error: %v", err.Error())
-		}
-
-		return err
-	}
-
-	for _, server := range servers {
-		err := s.HAProxyClient.DeleteServer(*server.Name, backendName, *transaction.Id)
-		if err != nil {
-			klog.Errorf("delete server error: %v", err.Error())
-
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-
-			return err
-		}
-	}
-
-	frontendName := fmt.Sprintf("frontend-%s", service.UID)
-	binds, err := s.HAProxyClient.ListBind(frontendName, *transaction.Id)
-	if err != nil {
-		klog.Errorf("list bind error: %v", err.Error())
-		return err
-	}
-	for _, bind := range binds {
-		err := s.HAProxyClient.DeleteBind(*bind.Name, frontendName, *transaction.Id)
-		if err != nil {
-			klog.Errorf("delete bind error: %v", err.Error())
-
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-			return err
-		}
-	}
-
-	// Create new backend if not exists
-	if _, err := s.HAProxyClient.GetBackend(backendName, *transaction.Id); err != nil {
-		// backend is a collection of servers
-		newBackend := haproxyv3.Backend{
-			Balance: &haproxyv3.BackendBalance{
-				Algorithm: haproxyv3.BACKEND_BALANCE_ALGORITHM_ROUNDROBIN,
-			},
-			Mode: "tcp",
-			Name: &backendName,
-		}
-
-		_, err = s.HAProxyClient.AddBackend(newBackend, *transaction.Id)
-		if err != nil {
-			klog.Errorf("create backend error: %v", err.Error())
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-			return err
-		}
-	}
-
-	// Create new frontend if not exists
-	if _, err := s.HAProxyClient.GetFrontend(frontendName, *transaction.Id); err != nil {
-		// frontend is a collection of binds
-		mode := haproxyv3.FRONTEND_MODE_TCP
-		newFrontend := haproxyv3.Frontend{
-			DefaultBackend: &backendName,
-			Mode:           &mode,
-			Name:           &frontendName,
-		}
-		if _, err = s.HAProxyClient.AddFrontend(newFrontend, *transaction.Id); err != nil {
-			klog.Errorf("create frontend error: %v", err.Error())
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-			return err
-		}
-	}
-
-	// Create new servers and binds
-	for i, p := range service.Spec.ExternalIPs {
-		for _, port := range service.Spec.Ports {
-
-			// create server.
-			// server is a pair of node and port links to the backend.
-			for _, node := range nodes {
-				nodeIp := ""
-				for _, address := range node.Status.Addresses {
-					if address.Type == v1.NodeInternalIP {
-						nodeIp = address.Address
-						break
-					}
-				}
-
-				// skip if node doesn't have internal IP
-				if nodeIp == "" {
-					continue
-				}
-				nodePort := int(port.NodePort)
-				serverName := fmt.Sprintf("server-%s-%s-%d-%d", service.UID, node.Name, port.NodePort, i)
-				newServer := haproxyv3.Server{
-					Address: &nodeIp,
-					Port:    &nodePort,
-					Name:    &serverName,
-				}
-				_, err = s.HAProxyClient.AddServer(backendName, *transaction.Id, newServer)
-				if err != nil {
-					return err
-				}
-			}
-
-			// create bind.
-			// bind is a pair of ip and port to expose the service to the external networks.
-			bindName := fmt.Sprintf("bind-%s-%d-%d", service.UID, port.Port, i)
-			portNumber := int(port.Port)
-			newBind := haproxyv3.Bind{
-				Address: &p,
-				Port:    &portNumber,
-				Name:    &bindName,
-			}
-
-			if _, err = s.HAProxyClient.AddBind(frontendName, *transaction.Id, newBind); err != nil {
-				klog.Errorf("create bind error: %v", err.Error())
-				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-					klog.Errorf("close transaction error: %v", err.Error())
-				}
-				return err
-			}
-		}
-	}
-
-	if _, err := s.HAProxyClient.CommitTransaction(*transaction.Id); err != nil {
-		klog.Errorf("commit transaction error: %v", err.Error())
-		if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-			klog.Errorf("close transaction error: %v", err.Error())
-		}
+	if _, err := s.reconcileLoadBalancer(context.Background(), service, nodes); err != nil {
 		return err
 	}
 
@@ -200,55 +45,93 @@ func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ strin
 		return err
 	}
 
-	backendName := fmt.Sprintf("backend-%s", service.UID)
-	frontendName := fmt.Sprintf("frontend-%s", service.UID)
+	resourcePrefix := fmt.Sprintf("haproxy-%s-", service.UID)
 
-	// Delete all servers and binds
-	servers, err := s.HAProxyClient.ListServer(backendName, *transaction.Id)
+	// delete all frontends and binds
+	frontends, err := s.HAProxyClient.ListFrontend(*transaction.Id)
 	if err != nil {
-		klog.Errorf("list servers error: %v", err.Error())
-	}
-	for _, server := range servers {
-		if err := s.HAProxyClient.DeleteServer(*server.Name, backendName, *transaction.Id); err != nil {
-			klog.Errorf("delete server error: %v", err.Error())
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-
-			return err
-		}
-	}
-	binds, err := s.HAProxyClient.ListBind(frontendName, *transaction.Id)
-	if err != nil {
-		klog.Errorf("list servers error: %v", err.Error())
-	}
-	for _, bind := range binds {
-		if err := s.HAProxyClient.DeleteBind(*bind.Name, frontendName, *transaction.Id); err != nil {
-			klog.Errorf("delete bind error: %v", err.Error())
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-
-			return err
-		}
-	}
-
-	if err := s.HAProxyClient.DeleteBackend(backendName, *transaction.Id); err != nil {
-		klog.Errorf("delete backend error: %v", err.Error())
+		klog.Errorf("list frontend error: %v", err.Error())
 		if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 			klog.Errorf("close transaction error: %v", err.Error())
 		}
-
 		return err
 	}
 
-	if err := s.HAProxyClient.DeleteFrontend(frontendName, *transaction.Id); err != nil {
-		klog.Errorf("delete frontend error: %v", err.Error())
+	for _, frontend := range frontends {
+		if !strings.HasPrefix(*frontend.Name, resourcePrefix) {
+			continue
+		}
+
+		binds, err := s.HAProxyClient.ListBind(*frontend.Name, *transaction.Id)
+		if err != nil {
+			klog.Errorf("list bind error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return err
+		}
+
+		for _, bind := range binds {
+			err := s.HAProxyClient.DeleteBind(*bind.Name, *frontend.Name, *transaction.Id)
+			if err != nil {
+				klog.Errorf("delete bind error: %v", err.Error())
+				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+					klog.Errorf("close transaction error: %v", err.Error())
+				}
+				return err
+			}
+		}
+
+		if err := s.HAProxyClient.DeleteFrontend(*frontend.Name, *transaction.Id); err != nil {
+			klog.Errorf("delete frontend error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return err
+		}
+	}
+
+	// delete all backends and servers
+	backends, err := s.HAProxyClient.ListBackend(*transaction.Id)
+	if err != nil {
+		klog.Errorf("list backend error: %v", err.Error())
 		if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 			klog.Errorf("close transaction error: %v", err.Error())
 		}
-
 		return err
+	}
+
+	for _, backend := range backends {
+		if !strings.HasPrefix(*backend.Name, resourcePrefix) {
+			continue
+		}
+
+		servers, err := s.HAProxyClient.ListServer(*backend.Name, *transaction.Id)
+		if err != nil {
+			klog.Errorf("list server error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return err
+		}
+
+		for _, server := range servers {
+			if err := s.HAProxyClient.DeleteServer(*server.Name, *backend.Name, *transaction.Id); err != nil {
+				klog.Errorf("delete server error: %v", err.Error())
+				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+					klog.Errorf("close transaction error: %v", err.Error())
+				}
+				return err
+			}
+		}
+
+		if err := s.HAProxyClient.DeleteBackend(*backend.Name, *transaction.Id); err != nil {
+			klog.Errorf("delete backend error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return err
+		}
 	}
 
 	if _, err := s.HAProxyClient.CommitTransaction(*transaction.Id); err != nil {
@@ -265,6 +148,10 @@ func (s *ServiceController) EnsureLoadBalancerDeleted(_ context.Context, _ strin
 
 func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
 	klog.Info("Creating HAProxy LoadBalancer...")
+	return s.reconcileLoadBalancer(context.Background(), service, nodes)
+}
+
+func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
 	if len(service.Spec.ExternalIPs) == 0 {
 		// Not implemented
 		return nil, fmt.Errorf("auto assign IP not implemented")
@@ -290,44 +177,78 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		return nil, err
 	}
 
-	backendName := fmt.Sprintf("backend-%s", service.UID)
+	resourcePrefix := fmt.Sprintf("haproxy-%s-", service.UID)
 
-	// Delete all servers and binds
-	servers, err := s.HAProxyClient.ListServer(backendName, *transaction.Id)
+	backends, err := s.HAProxyClient.ListBackend(*transaction.Id)
 	if err != nil {
-		klog.Errorf("list server error: %v", err.Error())
-
+		klog.Errorf("list backend error: %v", err.Error())
 		if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 			klog.Errorf("close transaction error: %v", err.Error())
 		}
-
 		return nil, err
 	}
 
-	for _, server := range servers {
-		err := s.HAProxyClient.DeleteServer(*server.Name, backendName, *transaction.Id)
-		if err != nil {
-			klog.Errorf("delete server error: %v", err.Error())
+	// delete all backends and servers
+	for _, backend := range backends {
+		if !strings.HasPrefix(*backend.Name, resourcePrefix) {
+			continue
+		}
 
+		servers, err := s.HAProxyClient.ListServer(*backend.Name, *transaction.Id)
+		if err != nil {
+			klog.Errorf("list server error: %v", err.Error())
 			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 				klog.Errorf("close transaction error: %v", err.Error())
 			}
-
 			return nil, err
+		}
+
+		for _, server := range servers {
+			if err := s.HAProxyClient.DeleteServer(*server.Name, *backend.Name, *transaction.Id); err != nil {
+				klog.Errorf("delete server error: %v", err.Error())
+				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+					klog.Errorf("close transaction error: %v", err.Error())
+				}
+				return nil, err
+			}
 		}
 	}
 
-	frontendName := fmt.Sprintf("frontend-%s", service.UID)
-	binds, err := s.HAProxyClient.ListBind(frontendName, *transaction.Id)
+	frontends, err := s.HAProxyClient.ListFrontend(*transaction.Id)
 	if err != nil {
-		klog.Errorf("list bind error: %v", err.Error())
+		klog.Errorf("list frontend error: %v", err.Error())
+		if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+			klog.Errorf("close transaction error: %v", err.Error())
+		}
 		return nil, err
 	}
-	for _, bind := range binds {
-		err := s.HAProxyClient.DeleteBind(*bind.Name, frontendName, *transaction.Id)
-		if err != nil {
-			klog.Errorf("delete bind error: %v", err.Error())
+	for _, frontend := range frontends {
+		if !strings.HasPrefix(*frontend.Name, resourcePrefix) {
+			continue
+		}
 
+		binds, err := s.HAProxyClient.ListBind(*frontend.Name, *transaction.Id)
+		if err != nil {
+			klog.Errorf("list bind error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return nil, err
+		}
+
+		for _, bind := range binds {
+			err := s.HAProxyClient.DeleteBind(*bind.Name, *frontend.Name, *transaction.Id)
+			if err != nil {
+				klog.Errorf("delete bind error: %v", err.Error())
+
+				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+					klog.Errorf("close transaction error: %v", err.Error())
+				}
+				return nil, err
+			}
+		}
+		if err := s.HAProxyClient.DeleteFrontend(*frontend.Name, *transaction.Id); err != nil {
+			klog.Errorf("delete frontend error: %v", err.Error())
 			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 				klog.Errorf("close transaction error: %v", err.Error())
 			}
@@ -335,98 +256,67 @@ func (s *ServiceController) EnsureLoadBalancer(_ context.Context, _ string, serv
 		}
 	}
 
-	// Create new backend if not exists
-	if _, err := s.HAProxyClient.GetBackend(backendName, *transaction.Id); err != nil {
-		// backend is a collection of servers
-		newBackend := haproxyv3.Backend{
+	// create a new backend and backend servers
+	for _, port := range service.Spec.Ports {
+		resourceName := fmt.Sprintf("%s-%s", resourcePrefix, port.Protocol)
+		if _, err := s.HAProxyClient.AddBackend(haproxyv3.Backend{
 			Balance: &haproxyv3.BackendBalance{
 				Algorithm: haproxyv3.BACKEND_BALANCE_ALGORITHM_ROUNDROBIN,
 			},
-			Mode: "tcp",
-			Name: &backendName,
-		}
-
-		_, err = s.HAProxyClient.AddBackend(newBackend, *transaction.Id)
-		if err != nil {
+			Name: &resourceName,
+			Mode: haproxyv3.BACKEND_MODE_TCP,
+		}, *transaction.Id); err != nil {
 			klog.Errorf("create backend error: %v", err.Error())
 			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 				klog.Errorf("close transaction error: %v", err.Error())
 			}
 			return nil, err
 		}
-	}
 
-	// Create new frontend if not exists
-	if _, err := s.HAProxyClient.GetFrontend(frontendName, *transaction.Id); err != nil {
-		// frontend is a collection of binds
-		mode := haproxyv3.FRONTEND_MODE_TCP
-		newFrontend := haproxyv3.Frontend{
-			DefaultBackend: &backendName,
-			Mode:           &mode,
-			Name:           &frontendName,
-		}
-		if _, err = s.HAProxyClient.AddFrontend(newFrontend, *transaction.Id); err != nil {
-			klog.Errorf("create frontend error: %v", err.Error())
-			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
-				klog.Errorf("close transaction error: %v", err.Error())
-			}
-			return nil, err
-		}
-	}
-
-	// Create new servers and binds
-	for i, p := range service.Spec.ExternalIPs {
-		for _, port := range service.Spec.Ports {
-
-			// create server.
-			// server is a pair of node and port links to the backend.
-			for _, node := range nodes {
-				nodeIp := ""
-				for _, address := range node.Status.Addresses {
-					if address.Type == v1.NodeInternalIP {
-						nodeIp = address.Address
-						break
-					}
-				}
-
-				// skip if node doesn't have internal IP
-				if nodeIp == "" {
-					continue
-				}
-				nodePort := int(port.NodePort)
-				serverName := fmt.Sprintf("server-%s-%s-%d-%d", service.UID, node.Name, port.NodePort, i)
-				newServer := haproxyv3.Server{
-					Address: &nodeIp,
-					Port:    &nodePort,
-					Name:    &serverName,
-				}
-				_, err = s.HAProxyClient.AddServer(backendName, *transaction.Id, newServer)
-				if err != nil {
-					return nil, err
+		for i, node := range nodes {
+			nodeIp := ""
+			for _, address := range node.Status.Addresses {
+				if address.Type == v1.NodeInternalIP {
+					nodeIp = address.Address
+					break
 				}
 			}
 
-			// create bind.
-			// bind is a pair of ip and port to expose the service to the external networks.
-			bindName := fmt.Sprintf("bind-%s-%d-%d", service.UID, port.Port, i)
-			portNumber := int(port.Port)
-			newBind := haproxyv3.Bind{
-				Address: &p,
-				Port:    &portNumber,
-				Name:    &bindName,
+			// skip if node doesn't have internal IP
+			if nodeIp == "" {
+				continue
 			}
-
-			if _, err = s.HAProxyClient.AddBind(frontendName, *transaction.Id, newBind); err != nil {
-				klog.Errorf("create bind error: %v", err.Error())
+			nodePort := int(port.NodePort)
+			serverName := fmt.Sprintf("server-%s-%s-%d-%d", service.UID, node.Name, port.NodePort, i)
+			newServer := haproxyv3.Server{
+				Address: &nodeIp,
+				Port:    &nodePort,
+				Name:    &serverName,
+			}
+			if _, err = s.HAProxyClient.AddServer(resourceName, *transaction.Id, newServer); err != nil {
+				klog.Errorf("create server error: %v", err.Error())
 				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
 					klog.Errorf("close transaction error: %v", err.Error())
 				}
 				return nil, err
 			}
+		}
+	}
 
-			newStatus.Ingress = append(newStatus.Ingress, v1.LoadBalancerIngress{
-				IP: p,
-			})
+	// Create new frontend if not exists
+	for _, port := range service.Spec.Ports {
+		resourceName := fmt.Sprintf("%s-%s", resourcePrefix, port.Protocol)
+		mode := haproxyv3.FRONTEND_MODE_TCP
+		if _, err := s.HAProxyClient.AddFrontend(haproxyv3.Frontend{
+			DefaultBackend: &resourceName,
+			Name:           &resourceName,
+			Mode:           &mode,
+		}, *transaction.Id); err != nil {
+			klog.Errorf("create frontend error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return nil, err
 		}
 	}
 
