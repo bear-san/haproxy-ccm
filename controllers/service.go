@@ -318,6 +318,24 @@ func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1
 			}
 			return nil, err
 		}
+
+		for _, ip := range service.Spec.ExternalIPs {
+			bindName := fmt.Sprintf("%s-%s-%s", resourcePrefix, ip, port.Protocol)
+			portNum := int(port.Port)
+			if _, err := s.HAProxyClient.AddBind(resourceName, *transaction.Id, haproxyv3.Bind{
+				Name:    &bindName,
+				Address: &ip,
+				Port:    &portNum,
+				V4V6:    nil,
+				V6Only:  nil,
+			}); err != nil {
+				klog.Errorf("create bind error: %v", err.Error())
+				if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+					klog.Errorf("close transaction error: %v", err.Error())
+				}
+				return nil, err
+			}
+		}
 	}
 
 	if _, err := s.HAProxyClient.CommitTransaction(*transaction.Id); err != nil {
