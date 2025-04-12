@@ -212,6 +212,14 @@ func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1
 				return nil, err
 			}
 		}
+
+		if err := s.HAProxyClient.DeleteBackend(*backend.Name, *transaction.Id); err != nil {
+			klog.Errorf("delete backend error: %v", err.Error())
+			if _, closeTransactionErr := s.HAProxyClient.CloseTransaction(*transaction.Id); closeTransactionErr != nil {
+				klog.Errorf("close transaction error: %v", err.Error())
+			}
+			return nil, err
+		}
 	}
 
 	frontends, err := s.HAProxyClient.ListFrontend(*transaction.Id)
