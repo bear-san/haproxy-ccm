@@ -354,5 +354,22 @@ func (s *ServiceController) reconcileLoadBalancer(_ context.Context, service *v1
 		return nil, err
 	}
 
+	for _, externalIP := range service.Spec.ExternalIPs {
+		if externalIP == "" {
+			continue
+		}
+		for _, port := range service.Spec.Ports {
+			newStatus.Ingress = append(newStatus.Ingress, v1.LoadBalancerIngress{
+				IP: externalIP,
+				Ports: []v1.PortStatus{
+					{
+						Port:     port.Port,
+						Protocol: port.Protocol,
+					},
+				},
+			})
+		}
+	}
+
 	return &newStatus, nil
 }
