@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"github.com/bear-san/haproxy-ccm/controllers"
-	haproxyv3 "github.com/bear-san/haproxy-go/dataplane/v3"
+	haproxyv1 "github.com/bear-san/haproxy-configurator/pkg/haproxy/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
@@ -23,18 +25,23 @@ func main() {
 		panic(err)
 	}
 
-	haproxyBaseUrl := flag.String("haproxy-endpoint", os.Getenv("HAPROXY_ENDPOINT"), "The endpoint of the haproxy API")
-	if *haproxyBaseUrl == "" {
+	haproxyEndpoint := flag.String("haproxy-endpoint", os.Getenv("HAPROXY_ENDPOINT"), "The endpoint of the haproxy gRPC API")
+	if *haproxyEndpoint == "" {
 		klog.Fatalf("haproxy endpoint is required")
 	}
-	haproxyAuth := os.Getenv("HAPROXY_AUTH")
 
 	cloudprovider.RegisterCloudProvider("haproxy", func(config io.Reader) (cloudprovider.Interface, error) {
+		// Create gRPC connection
+		conn, err := grpc.NewClient(*haproxyEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, err
+		}
+		
+		client := haproxyv1.NewHAProxyManagerServiceClient(conn)
+		
 		return &controllers.Provider{
-			HAproxyClient: &haproxyv3.Client{
-				Credential: haproxyAuth,
-				BaseUrl:    *haproxyBaseUrl,
-			},
+			HAProxyClient: client,
+			Connection:    conn,
 		}, nil
 	})
 
