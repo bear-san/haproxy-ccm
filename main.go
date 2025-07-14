@@ -26,7 +26,6 @@ func main() {
 	}
 
 	haproxyEndpoint := flag.String("haproxy-endpoint", os.Getenv("HAPROXY_ENDPOINT"), "The endpoint of the haproxy gRPC API")
-	flag.Parse()
 	if *haproxyEndpoint == "" {
 		klog.Fatalf("haproxy endpoint is required")
 	}
@@ -37,9 +36,9 @@ func main() {
 		if err != nil {
 			return nil, err
 		}
-
+		
 		client := haproxyv1.NewHAProxyManagerServiceClient(conn)
-
+		
 		return &controllers.Provider{
 			HAProxyClient: client,
 			Connection:    conn,
