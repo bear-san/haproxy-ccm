@@ -17,25 +17,30 @@ spec:
         image: {{ .Values.image.name }}:{{ .Values.image.tag }}
         env:
           - name: HAPROXY_ENDPOINT
-            {{ if .Values.env.useExistsSecret.enabled }}
+            {{- if .Values.env.useExistsSecret.enabled }}
             valueFrom:
               secretKeyRef:
                 name: {{ .Values.env.useExistsSecret.secretRef.baseUrl.name }}
                 key: {{ .Values.env.useExistsSecret.secretRef.baseUrl.key }}
-            {{ else }}
-            value: {{ .Values.env.baseUrl }}
-            {{ end }}
+            {{- else }}
+            value: {{ .Values.env.baseUrl | quote }}
+            {{- end }}
+          {{- if or .Values.env.useExistsSecret.enabled .Values.env.auth }}
           - name: HAPROXY_AUTH
-            {{ if .Values.env.useExistsSecret.enabled }}
+            {{- if .Values.env.useExistsSecret.enabled }}
             valueFrom:
               secretKeyRef:
                 name: {{ .Values.env.useExistsSecret.secretRef.auth.name }}
                 key: {{ .Values.env.useExistsSecret.secretRef.auth.key }}
-            {{ else }}
-            value: {{ .Values.env.auth }}
-            {{ end }}
+            {{- else }}
+            value: {{ .Values.env.auth | quote }}
+            {{- end }}
+          {{- end }}
         args:
-          - --cloud-provider=haproxy
+          - --cloud-provider={{ .Values.args.cloudProvider }}
+          {{- range .Values.args.additional }}
+          - {{ . }}
+          {{- end }}
       serviceAccountName: haproxy-ccm
       {{ if .Values.image.useImagePullSecret.enabled }}
       imagePullSecrets:
