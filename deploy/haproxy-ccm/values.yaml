@@ -16,3 +16,15 @@ env:
         key: ""
   baseUrl: ""
   auth: ""
+
+# Additional command line arguments for haproxy-ccm
+args:
+  # Cloud provider specific arguments
+  cloudProvider: "haproxy"
+  
+  # Additional custom arguments (list format)
+  # Example:
+  # - "--log-level=debug"
+  # - "--bind-address=0.0.0.0"
+  # - "--port=10258"
+  additional: []
