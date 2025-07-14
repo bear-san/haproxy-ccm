@@ -1,13 +1,15 @@
 package controllers
 
 import (
-	haproxyv3 "github.com/bear-san/haproxy-go/dataplane/v3"
+	haproxyv1 "github.com/bear-san/haproxy-configurator/pkg/haproxy/v1"
+	"google.golang.org/grpc"
 	cloudprovider "k8s.io/cloud-provider"
 )
 
 type Provider struct {
 	cloudprovider.Interface
-	HAproxyClient *haproxyv3.Client
+	HAProxyClient haproxyv1.HAProxyManagerServiceClient
+	Connection    *grpc.ClientConn
 }
 
 func (p *Provider) Initialize(_ cloudprovider.ControllerClientBuilder, _ <-chan struct{}) {
@@ -16,7 +18,7 @@ func (p *Provider) Initialize(_ cloudprovider.ControllerClientBuilder, _ <-chan 
 
 func (p *Provider) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
 	return &ServiceController{
-		HAProxyClient: p.HAproxyClient,
+		HAProxyClient: p.HAProxyClient,
 	}, true
 }
 
